@@ -1,0 +1,53 @@
+﻿15_step_motor_2 硬件与外设配置
+=============================
+
+基准变更: CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING
+芯片: MSPM0G3507, LQFP-64
+CPUCLK: 80 MHz
+逻辑电平: 3.3 V；K230、MSPM0和两路电机驱动必须共地。
+
+一、步进电机1（水平/Yaw，GIMBAL_YAW_MOTOR_ID=1）
+PA28  TIMA1_C0  DCC_100_PWM1  STEP/PWM，微步脉冲输出
+PA31  GPIO输出  DIR1          方向，高低电平对应方向需实机确认
+PA7   GPIO输出  RST1          高电平工作
+PB24  GPIO输出  SLP1          高电平工作，低电平休眠
+PB20  GPIO输出  DCY1          高电平大扭矩衰减模式
+定时器: TIMA1，BUSCLK/8=10 MHz，边沿对齐PWM，50%占空比，LOAD中断计步。
+
+二、步进电机2（俯仰/Pitch，GIMBAL_PITCH_MOTOR_ID=2）
+PA12  TIMG0_C0  DCC_100_PWM2  STEP/PWM，微步脉冲输出
+PA13  GPIO输出  DIR2          方向，高低电平对应方向需实机确认
+PA14  GPIO输出  DCY2          高电平大扭矩衰减模式
+PA15  GPIO输出  SLP2          高电平工作，低电平休眠
+PA16  GPIO输出  RST2          高电平工作
+定时器: TIMG0，BUSCLK/8=5 MHz，边沿对齐PWM，50%占空比，LOAD中断计步。
+
+三、K230视觉模块（UART2，115200 bit/s，8-N-1，无流控）
+PA22  UART2_RX   接K230 TXD(IO9/A22)，接收目标框数据，启用RX中断
+PA21  UART2_TX   接K230 RXD(IO10/A21)，当前预留
+5V    接K230 5V
+GND   接K230 GND并与MSPM0共地
+协议: $<length>,15,<x>,<y>,<width>,<height>,#
+中心: center_x=x+width/2，center_y=y+height/2。
+
+四、调试串口（UART0，115200 bit/s，8-N-1，无流控）
+PA10  UART0_TX   输出[CHANGE]、[CFG]、[AIM]、[K230_ERR]等诊断信息
+PA11  UART0_RX   调试回显输入，启用RX中断
+
+五、OLED（I2C1控制器）
+PB2   I2C1_SCL   内部上拉
+PB3   I2C1_SDA   内部上拉
+
+六、系统保留/调试功能
+PA5/PA6    40 MHz外部高频晶振输入/输出（SysConfig时钟树建议解）
+PA19/PA20  SWDIO/SWCLK（调试接口建议解）
+
+七、冲突检查（2026-07-14）
+SysConfig显式分配物理引脚共16个：PA7、PA10、PA11、PA12、PA13、PA14、
+PA15、PA16、PA21、PA22、PA28、PA31、PB2、PB3、PB20、PB24。
+重复物理引脚: 0。
+UART0、UART2、I2C1、TIMA1、TIMG0实例互不重复；两路PWM使用不同定时器。
+SysConfig CLI校验: 通过，无错误。仅有Flash操作建议和TIMG0低功耗寄存器保持提示。
+
+注意: 激光电源控制引脚尚未配置，因为当前资料没有给出激光开关所接GPIO。
+调试方向和机械零位时请关闭激光，避免误照人员或反光物。

@@ -1,0 +1,19 @@
+﻿快照名称: CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING_before
+创建日期: 2026-07-14
+用途: 回退CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING。
+
+已保存文件（为防止CCS递归编译，统一追加.snapshot后缀）:
+main.c.snapshot
+step_motor.c.snapshot
+step_motor.h.snapshot
+k230.c.snapshot
+k230.h.snapshot
+empty.syscfg.snapshot
+Debug/ti_msp_dl_config.c.snapshot
+Debug/ti_msp_dl_config.h.snapshot
+
+完整回退步骤:
+1. 将上述快照文件复制回15_step_motor_2中的对应路径，并去掉.snapshot后缀。
+2. 删除gimbal_control.c和gimbal_control.h。
+3. 删除本次变更说明文件（如需要完全恢复目录状态）。
+4. 在CCS中Refresh、Clean并重新Build。

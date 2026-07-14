@@ -1,0 +1,23 @@
+#ifndef STEP_MOTOR_H
+#define STEP_MOTOR_H
+
+/*
+ * Motor 1: PA28 PWM, PA31 DIR, PB20 DCY, PB24 SLP, PA7 RST
+ * Motor 2: PA12 PWM, PA13 DIR, PA14 DCY, PA15 SLP, PA16 RST
+ * One pulse advances one microstep: 0.05625 degrees.
+ */
+
+#include "ti_msp_dl_config.h"
+
+void step_motor_init(void);
+//方向
+void step_motor_dir_set(uint8_t direction, uint8_t stepper_id);
+//
+void step_motor_start(uint8_t stepper_id);
+void step_motor_stop(uint8_t stepper_id);
+//速度
+void step_set_speed(uint8_t speed, uint8_t stepper_id);
+//角度开始和停止
+void step_motor_set_angle(uint8_t angle, uint8_t stepper_id);
+
+#endif /* STEP_MOTOR_H */

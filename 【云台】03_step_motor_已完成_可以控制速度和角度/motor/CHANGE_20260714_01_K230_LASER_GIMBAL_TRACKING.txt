@@ -1,0 +1,108 @@
+﻿变更名称: CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING
+==========================================================
+
+一、目标
+1. 接收K230目标框，计算识别目标中心坐标。
+2. 根据A4靶纸框尺寸估算相机到靶面距离。
+3. 根据激光与相机光心的固定物理距离，动态换算激光应对应的图像中心。
+4. 在小车运动中分别驱动水平和俯仰步进电机，使目标中心进入补偿后的死区。
+5. 提供可观测的串口输出、错误计数、具名快照和回退步骤。
+
+二、代码模块
+gimbal_control.h/.c
+  保存相机、靶纸、激光偏置、轴映射、方向、限位和闭环参数；执行距离估算、
+  低通滤波、视差补偿、像素误差到角度换算以及双轴非阻塞控制。
+k230.h/.c
+  继续解析 $<length>,15,<x>,<y>,<w>,<h>,#，新增完整帧、有效帧、
+  解析错误、溢出和丢帧统计。
+step_motor.h/.c
+  新增有符号步数/相对角度、忙状态和剩余步数接口；修正LOAD中断计数，
+  保证N个命令脉冲不会在末尾额外多发一个脉冲。
+main.c
+  初始化K230、双轴云台并执行闭环；通过UART0输出配置、瞄准状态和错误统计。
+
+三、关键计算
+K230中心:
+  center_x = x + width / 2
+  center_y = y + height / 2
+距离估算（要求K230框住整张横向A4靶纸）:
+  distance_x = focal_x_px * 297 mm / box_width_px
+  distance_y = focal_y_px * 210 mm / box_height_px
+  distance = low_pass((distance_x + distance_y) / 2)
+激光视差补偿:
+  desired_x = image_width/2 + focal_x_px * laser_offset_x_mm / distance_mm
+  desired_y = image_height/2 + focal_y_px * laser_offset_y_mm / distance_mm
+闭环误差:
+  error_x = filtered_target_x - desired_x
+  error_y = filtered_target_y - desired_y
+小角度修正:
+  yaw_deg   = error_x / focal_x_px * 57.29578 * yaw_kp * yaw_sign
+  pitch_deg = error_y / focal_y_px * 57.29578 * pitch_kp * pitch_sign
+
+四、必须先标定的宏（gimbal_control.h）
+GIMBAL_LASER_CAMERA_DISTANCE_MM = 0.0f
+  当前为安全占位值，表示视差补偿尚未物理启用；改为实测光心间距（毫米）。
+GIMBAL_LASER_OFFSET_X_RATIO = 1.0f
+GIMBAL_LASER_OFFSET_Y_RATIO = 0.0f
+  当前假设激光位于相机右侧。左侧用(-1,0)，下方用(0,1)，上方用(0,-1)。
+GIMBAL_LASER_OFFSET_CALIBRATED = 0U
+  完成距离、方向和光斑静态验证后改为1U。
+GIMBAL_CAMERA_FOCAL_X_PX / GIMBAL_CAMERA_FOCAL_Y_PX
+  当前554/579是640x480、约60x45度视场的初值，应使用实际镜头标定值替换。
+GIMBAL_YAW_MOTOR_SIGN / GIMBAL_PITCH_MOTOR_SIGN
+  若误差增大而非减小，将对应值在1.0f与-1.0f之间反转。
+
+五、运行时输出与判定
+启动应依次看到：
+[CHANGE] CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING
+[CFG] image=640x480 focal=(554,579) A4=(297,210)mm
+[CFG] laser_distance=0um offset=(0,0)um motors=(yaw:1,pitch:2) signs=(1,1)
+[CAL_WARN] Measure laser-camera X/Y offsets before accuracy test.
+[WAIT] K230 frame: $<len>,15,<x>,<y>,<w>,<h>,#
+
+每5个有效目标输出一行[AIM]：
+target/desired越接近，error越接近(0,0)；distance为估计靶距；cmd是本次命令角度
+（毫度）；pos是相对上电机械零位的累计角度；sent表示是否下发；busy表示电机在转。
+误差进入正负4像素死区时，cmd应为(0,0)，电机不应继续抖动。
+
+可用于串口注入检查的居中样例（总长度字段为24）:
+$24,15,238,179,164,122,#
+连续发送5次后，理论诊断接近：
+[AIM] n=5 target=(320,240) desired=(320,240) error=(0,0) distance=1000mm cmd=(0,0)mdeg pos=(0,0)mdeg sent=(0,0) busy=(0,0)
+
+[K230_ERR]中的parse/overflow/dropped正常应保持0。
+[AIM_ERR]表示K230坐标不在配置的640x480图像范围内。
+
+六、自动检查结果（2026-07-14）
+SysConfig CLI: PASS；生成文件与项目Debug中的现有配置逐文件SHA-256一致。
+物理引脚重复检查: PASS；16个显式引脚，0个重复。
+全量编译: PASS；9个编译单元，包括k230.c和gimbal_control.c。
+全量链接: PASS；映射表包含UART2_IRQHandler、GimbalControl_Update、
+             K230_PollTarget、TIMA1_IRQHandler和TIMG0_IRQHandler。
+FLASH: 0x37D8 / 0x20000 = 14296 / 131072 bytes。
+SRAM:  0x037B / 0x08000 = 891 / 32768 bytes（含链接器分配的栈）。
+
+七、CCS构建注意事项
+项目内现有Debug/makefile生成于新增模块之前，旧文件列表不含k230.c和
+gimbal_control.c。导入CCS后先执行Refresh，再执行Project -> Clean，随后Build。
+不要手工修改Debug/makefile；CCS会按工程根目录中的.c文件重新生成它。
+编译日志必须出现k230.c和gimbal_control.c，否则烧录的仍是旧功能镜像。
+
+八、已知风险与下一次改进方向
+1. 未提供真实激光/相机间距，当前距离宏为0；不完成标定不能承诺命中靶心。
+2. 距离估算仅在目标框为整张横向A4纸时成立；若K230框的是内圈，距离会错误。
+   靶纸斜视时普通外接框还会受透视缩短影响；高精度版本应在K230端提取四角并用
+   单应性或PnP求姿态/距离，再将距离随目标中心一起发送给MSPM0。
+3. 两个电机轴映射和正负方向是初始假设，必须在关闭激光时做小角度实测。
+4. 开环步进电机没有绝对零位和丢步反馈；上电前需机械居中，软件限位只相对上电位。
+5. 小车运动会引入图像延迟、模糊和机械振动；下一版应基于实测日志调整KP、滤波、
+   速度和死区，并增加目标丢失超时/停止策略。
+6. 后续可增加回零开关或编码器、标定矩阵以及激光电源GPIO联锁。
+
+九、回退
+快照目录:
+change_backups/CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING_before/
+将其中带.snapshot后缀的main.c、step_motor.c/.h、k230.c/.h、empty.syscfg及
+生成配置恢复到原位置并去掉.snapshot后缀，
+删除本次新增的gimbal_control.c/.h，即可回到本次修改前。详细列表见快照内
+SNAPSHOT_MANIFEST.txt。

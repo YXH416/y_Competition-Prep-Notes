@@ -1,0 +1,285 @@
+15_step_motor_2 硬件引脚与外设配置检查报告
+生成日期: 2026-07-14
+目标器件: MSPM0G3507, LQFP-64
+配置工具: SysConfig 1.26.2, MSPM0 SDK 2.10.00.04
+
+======================================================================
+1. 检查结论
+======================================================================
+
+[PASS] SysConfig 命令行校验通过，Errors = 0。
+[PASS] 当前工程共使用 20 个物理 MCU 引脚，自动重复引脚检查结果为 0。
+[PASS] TIMA1、TIMG0、UART0、UART2、I2C1 外设实例互不重复。
+[PASS] TIMA1_IRQHandler、TIMG0_IRQHandler、UART0_IRQHandler、
+       UART2_IRQHandler 中断入口互不冲突。
+[PASS] 步进电机1接线与接线表一致：PA28/PWM、PA31/DIR、PB20/DCY、
+       PB24/SLP、PA7/RST。
+[PASS] 步进电机2接线与接线表一致：PA12/PWM、PA13/DIR、PA14/DCY、
+       PA15/SLP、PA16/RST。
+[PASS] K230 接线方向正确：K230 TXD -> PA22/UART2_RX，
+       K230 RXD -> PA21/UART2_TX。
+[PASS] 完整工程已通过 TI ARM 编译器编译和链接。
+[FIXED] PRINT/UART0 已配置 RX 中断，但 main.c 原先未打开 UART0 NVIC。
+        现已补充 NVIC_EnableIRQ(PRINT_INST_INT_IRQN)，UART0 接收回显可用。
+
+当前未发现物理引脚复用冲突或外设实例冲突。
+
+======================================================================
+2. GPIO 数量说明
+======================================================================
+
+SysConfig 左侧显示 GPIO = 3，表示 3 个 GPIO 分组，不是 3 个引脚：
+
+1) STEP_MOTOR
+   GPIOA: PA13/DIR2、PA14/DCY2、PA15/SLP2、PA16/RST2
+
+2) STEP_MOTOR1_A
+   GPIOA: PA31/DIR1、PA7/RST1
+
+3) STEP_MOTOR1_B
+   GPIOB: PB24/SLP1、PB20/DCY1
+
+普通数字输出 GPIO 共 8 个。PWM、UART、I2C、晶振和调试引脚属于外设复用
+引脚，不计入上述 GPIO 分组数量。
+
+======================================================================
+3. MCU 全部已占用引脚
+======================================================================
+
+引脚   复用/类型          方向       功能与连接                     运行状态
+-----  -----------------  ---------  -----------------------------  --------
+PA5    HFXIN              输入       40 MHz 外部高速晶振输入         SYSCTL 使用
+PA6    HFXOUT             输出       40 MHz 外部高速晶振输出         SYSCTL 使用
+PA7    GPIOA              输出       步进电机1 RST                   初始化后高电平
+PA10   UART0_TX           输出       PRINT 调试串口 TX               115200, 8N1
+PA11   UART0_RX           输入       PRINT 调试串口 RX               115200, RX中断
+PA12   TIMG0_CCP0         输出       步进电机2 PWM/STEP              定时器停止等待启动
+PA13   GPIOA              输出       步进电机2 DIR                   main最终设置低电平
+PA14   GPIOA              输出       步进电机2 DCY                   初始化后高电平/大扭矩
+PA15   GPIOA              输出       步进电机2 SLP                   初始化后高电平/工作
+PA16   GPIOA              输出       步进电机2 RST                   初始化后高电平/工作
+PA19   DEBUGSS_SWDIO      双向       SWD 调试数据                    调试器保留
+PA20   DEBUGSS_SWCLK      输入       SWD 调试时钟                    调试器保留
+PA21   UART2_TX           输出       MSPM0 -> K230 RXD(IO10)         115200, 8N1
+PA22   UART2_RX           输入       K230 TXD(IO9) -> MSPM0          115200, RX中断
+PA28   TIMA1_CCP0         输出       步进电机1 PWM/STEP              定时器停止等待启动
+PA31   GPIOA              输出       步进电机1 DIR                   main最终设置低电平
+PB2    I2C1_SCL           双向       OLED 时钟                       100 kHz, 上拉
+PB3    I2C1_SDA           双向       OLED 数据                       100 kHz, 上拉
+PB20   GPIOB              输出       步进电机1 DCY                   初始化后高电平/大扭矩
+PB24   GPIOB              输出       步进电机1 SLP                   初始化后高电平/工作
+
+未被本工程使用的 MCU 引脚保持未分配状态。
+
+======================================================================
+4. 步进电机1配置
+======================================================================
+
+电机编号: 1
+PWM 配置名: DCC_100_PWM1
+定时器实例: TIMA1
+PWM 通道: TIMA1_CCP0 / CC0
+PWM 引脚: PA28
+定时器时钟: 10,000,000 Hz
+SysConfig 默认周期: 10,000
+SysConfig 默认比较值: 5,000
+SysConfig 默认 PWM: 1,000 Hz, 50% 占空比
+计数模式: EDGE_ALIGN_UP
+定时器中断: LOAD_EVENT
+NVIC 中断: TIMA1_INT_IRQn
+中断函数: TIMA1_IRQHandler
+启动状态: SYSCFG_DL_init 后停止
+
+控制 GPIO:
+PA31 DIR1 - 低/高电平对应两个转向；main 当前设置为低电平。
+PB20 DCY1 - 高电平大扭矩，低电平小扭矩；初始化后为高电平。
+PB24 SLP1 - 高电平工作，低电平休眠；初始化后为高电平。
+PA7  RST1 - 高电平退出复位；初始化后为高电平。
+
+运行时速度设置:
+frequency = speed_deg_per_s / 0.05625
+period = 10,000,000 / frequency
+compare = period / 2
+
+======================================================================
+5. 步进电机2配置
+======================================================================
+
+电机编号: 2
+PWM 配置名: DCC_100_PWM2
+定时器实例: TIMG0
+PWM 通道: TIMG0_CCP0 / CC0
+PWM 引脚: PA12
+定时器时钟: 5,000,000 Hz
+SysConfig 默认周期: 10,000
+SysConfig 默认比较值: 5,000
+SysConfig 默认 PWM: 500 Hz, 50% 占空比
+计数模式: EDGE_ALIGN_UP
+定时器中断: LOAD_EVENT
+NVIC 中断: TIMG0_INT_IRQn
+中断函数: TIMG0_IRQHandler
+启动状态: SYSCFG_DL_init 后停止
+
+控制 GPIO:
+PA13 DIR2 - 低/高电平对应两个转向；main 当前设置为低电平。
+PA14 DCY2 - 高电平大扭矩，低电平小扭矩；初始化后为高电平。
+PA15 SLP2 - 高电平工作，低电平休眠；初始化后为高电平。
+PA16 RST2 - 高电平退出复位；初始化后为高电平。
+
+运行时速度设置:
+frequency = speed_deg_per_s / 0.05625
+period = 5,000,000 / frequency
+compare = period / 2
+
+两个定时器时钟不同，但 step_set_speed() 分别使用各自的
+DCC_100_PWM1_INST_CLK_FREQ 和 DCC_100_PWM2_INST_CLK_FREQ，因此相同的
+角速度输入能够生成相同的目标脉冲频率，不存在速度计算混用。
+
+======================================================================
+6. K230 UART2配置
+======================================================================
+
+配置名: K230_UART
+外设实例: UART2
+外设时钟: 40,000,000 Hz
+波特率: 115200
+格式: 8 data bits, no parity, 1 stop bit, no flow control
+TX: PA21 -> K230 RXD(IO10)
+RX: PA22 <- K230 TXD(IO9)
+外设中断: RX
+NVIC 中断: UART2_INT_IRQn
+中断函数: UART2_IRQHandler，实现在 k230.c
+NVIC 开启位置: K230_Init()
+
+K230 外部接线:
+K230 5V  -> 开发板 5V/VCC
+K230 GND -> 开发板 GND
+K230 TXD(IO9)  -> PA22
+K230 RXD(IO10) -> PA21
+
+目标跟踪协议:
+$<length>,15,<x>,<y>,<width>,<height>,#
+
+x、y 为目标框左上角，MSPM0 计算中心坐标：
+center_x = x + width / 2
+center_y = y + height / 2
+
+k230.c 的 UART2 ISR 只负责接收和组帧；K230_PollTarget() 在 main 主循环
+中完成字段解析，避免在中断中执行复杂字符串转换。
+
+======================================================================
+7. PRINT调试串口配置
+======================================================================
+
+配置名: PRINT
+外设实例: UART0
+外设时钟: 40,000,000 Hz
+波特率: 115200
+格式: 8 data bits, no parity, 1 stop bit, no flow control
+TX: PA10
+RX: PA11
+外设中断: RX
+NVIC 中断: UART0_INT_IRQn
+中断函数: UART0_IRQHandler，实现在 uart.c
+NVIC 开启位置: main.c
+
+K230 UART2 与 PRINT UART0 是两个独立硬件外设，同时使用 115200 不会冲突。
+main.c 使用 UART0 TX 输出 K230 解析后的目标框和中心坐标。
+
+======================================================================
+8. OLED I2C配置
+======================================================================
+
+配置名: OLED
+外设实例: I2C1
+工作模式: Controller
+总线速度: 100,000 Hz
+SCL: PB2 / I2C1_SCL
+SDA: PB3 / I2C1_SDA
+数字毛刺滤波: 1 clock
+内部电阻: SCL、SDA 均启用上拉
+DMA Event1/Event2: 关闭
+中断: 未启用
+
+PB2、PB3 未与电机、UART、PWM或调试引脚重复。
+
+======================================================================
+9. 系统时钟与调试接口
+======================================================================
+
+外部高速晶振: 40 MHz，PA5/HFXIN + PA6/HFXOUT
+CPUCLK: 80 MHz
+MCLK 来源: SYSPLL
+ULPCLK Divider: 2
+SWDIO: PA19
+SWCLK: PA20
+
+PA19、PA20 只供调试器使用，应用代码未复用这些引脚。
+
+======================================================================
+10. 冲突和风险检查
+======================================================================
+
+10.1 物理引脚冲突
+结果: 无冲突。
+检查方法: 对 empty.syscfg 中全部 PAxx/PBxx 分配和建议分配进行分组计数，
+每个物理引脚出现 1 次，重复项为 0。
+
+10.2 外设冲突
+结果: 无冲突。
+TIMA1 仅用于电机1，TIMG0 仅用于电机2，UART0 仅用于 PRINT，UART2 仅
+用于 K230，I2C1 仅用于 OLED。
+
+10.3 中断冲突
+结果: 无冲突。
+TIMA1、TIMG0、UART0、UART2 均有独立向量和独立 ISR。
+
+10.4 需要注意的限制
+
+1) 0.05625 度/脉冲必须与实际电机和驱动器微步配置一致。该值通常对应
+   1.8 度电机的 1/32 微步；若硬件微步模式不同，速度和角度都会产生
+   固定比例误差。
+
+2) step_set_speed() 将定时器周期限制在 800 至 65535。受 16 位周期上限
+   影响，电机1理论最低脉冲频率约 152.59 Hz，最低角速度约 8.58 度/秒；
+   电机2理论最低脉冲频率约 76.29 Hz，最低角速度约 4.29 度/秒。请求更低
+   速度时会被周期上限钳位，实际速度会高于请求值。
+
+3) step_set_speed() 和 step_motor_set_angle() 的参数类型都是 uint8_t，
+   单次角度及速度输入范围为 0 至 255。需要大于 255 度的单次运动时应将
+   API 参数扩展为 uint16_t 或 uint32_t。
+
+4) K230 接收缓冲区最大 64 字节，只保存一帧待解析数据。main 必须持续
+   调用 K230_PollTarget()；如果主循环长时间阻塞，新完成帧会被丢弃，但
+   不会覆盖正在解析的帧。
+
+5) SysConfig 生成阶段先将步进电机控制 GPIO 清零，step_motor_init() 再将
+   RST、SLP、DCY 和默认 DIR 置高。这段短暂低电平会让驱动器处于复位或
+   休眠状态，属于安全启动顺序。
+
+6) 两路 PWM 的 SysConfig 默认频率不同，但 main 在启动电机前调用
+   step_set_speed(60, id) 重设周期，因此不会使用默认 500/1000 Hz 运行。
+
+7) 步进电机驱动电源 11 至 26 V 及 K230 5 V 属于外部电源连接，不由
+   SysConfig 管理。所有模块必须与 MSPM0 共地，禁止将电机高压接到 MCU
+   逻辑引脚。
+
+======================================================================
+11. 配置源与生成文件
+======================================================================
+
+配置源文件:
+empty.syscfg
+
+SysConfig 自动生成文件:
+Debug/ti_msp_dl_config.h
+Debug/ti_msp_dl_config.c
+
+应用模块:
+step_motor.c / step_motor.h
+k230.c / k230.h
+uart.c / uart.h
+main.c
+
+修改引脚和外设时只修改 empty.syscfg，再由 SysConfig 重新生成 Debug 下的
+配置文件。不要直接手工修改 ti_msp_dl_config.c 或 ti_msp_dl_config.h。

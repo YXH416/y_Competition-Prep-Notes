@@ -1,0 +1,10 @@
+﻿15_step_motor_2 变更记录
+========================
+
+CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING
+日期: 2026-07-14
+状态: 源码完成；SysConfig、全量编译和链接检查通过；等待实物标定。
+说明: 增加K230目标解析统计、激光/相机视差补偿、双轴云台闭环微调、
+      非阻塞步进电机控制和串口诊断输出。
+详情: CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING.txt
+回退: change_backups/CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING_before/
