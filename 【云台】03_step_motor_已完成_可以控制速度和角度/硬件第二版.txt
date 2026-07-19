@@ -1,7 +1,8 @@
-﻿15_step_motor_2 硬件与外设配置
+15_step_motor_2 硬件与外设配置
 =============================
 
-基准变更: CHANGE_20260714_01_K230_LASER_GIMBAL_TRACKING
+当前变更: CHANGE_20260719_03_K230_TARGET_LINK_DIAGNOSTICS
+基准变更: CHANGE_20260719_02_MOTOR1_POWER_ON_ONE_REV_TEST
 芯片: MSPM0G3507, LQFP-64
 CPUCLK: 80 MHz
 逻辑电平: 3.3 V；K230、MSPM0和两路电机驱动必须共地。
@@ -23,12 +24,16 @@ PA16  GPIO输出  RST2          高电平工作
 定时器: TIMG0，BUSCLK/8=5 MHz，边沿对齐PWM，50%占空比，LOAD中断计步。
 
 三、K230视觉模块（UART2，115200 bit/s，8-N-1，无流控）
-PA22  UART2_RX   接K230 TXD(IO9/A22)，接收目标框数据，启用RX中断
-PA21  UART2_TX   接K230 RXD(IO10/A21)，当前预留
+PA22  UART2_RX   接K230 TXD(IO11)，接收控制帧和诊断行，启用RX中断
+PA21  UART2_TX   接K230 RXD(IO12)，当前预留
 5V    接K230 5V
 GND   接K230 GND并与MSPM0共地
-协议: $<length>,15,<x>,<y>,<width>,<height>,#
-中心: center_x=x+width/2，center_y=y+height/2。
+当前CanMV控制帧: [<dx:有符号3位><dy:有符号3位>*]
+示例: [+012-034*]；丢失目标: [+999+999*]；每帧固定11字节，无CR/LF。
+含义: dx=240-target_center_x，dy=160-target_center_y；图像尺寸480x320。
+诊断行: #CFG、#DBG、#ERR开头，以CR/LF结尾。
+兼容协议: $<length>,15,<x>,<y>,<width>,<height>,#（仍保留解析）。
+重要: IO11/IO12来自本项目实际烧录的CanMV脚本，不使用旧资料中的IO9/IO10。
 
 四、调试串口（UART0，115200 bit/s，8-N-1，无流控）
 PA10  UART0_TX   输出[CHANGE]、[CFG]、[AIM]、[K230_ERR]等诊断信息
@@ -42,12 +47,13 @@ PB3   I2C1_SDA   内部上拉
 PA5/PA6    40 MHz外部高频晶振输入/输出（SysConfig时钟树建议解）
 PA19/PA20  SWDIO/SWCLK（调试接口建议解）
 
-七、冲突检查（2026-07-14）
+七、冲突检查（2026-07-19）
 SysConfig显式分配物理引脚共16个：PA7、PA10、PA11、PA12、PA13、PA14、
 PA15、PA16、PA21、PA22、PA28、PA31、PB2、PB3、PB20、PB24。
 重复物理引脚: 0。
 UART0、UART2、I2C1、TIMA1、TIMG0实例互不重复；两路PWM使用不同定时器。
 SysConfig CLI校验: 通过，无错误。仅有Flash操作建议和TIMG0低功耗寄存器保持提示。
+K230串口和UART0调试串口分属UART2、UART0，不共享物理引脚。
 
 注意: 激光电源控制引脚尚未配置，因为当前资料没有给出激光开关所接GPIO。
 调试方向和机械零位时请关闭激光，避免误照人员或反光物。
