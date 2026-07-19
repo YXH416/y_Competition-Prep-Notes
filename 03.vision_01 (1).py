@@ -300,7 +300,7 @@ def order_corners(corners):
 
 
 def line_angle_deg(point1, point2):
-    angle = math.degrees(m；ath.atan2(point2[1] - point1[1], point2[0] - point1[0]))
+    angle = math.degrees(math.atan2(point2[1] - point1[1], point2[0] - point1[0]))
     return angle % 180.0
 
 
