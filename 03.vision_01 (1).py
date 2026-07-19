@@ -13,8 +13,8 @@ from machine import UART, FPIOA, Pin
 
 # ========================= 硬件与通信配置 =========================
 fpioa = FPIOA()
-fpioa.set_function(11, fpioa.UART2_TXD)
-fpioa.set_function(12, fpioa.UART2_RXD)
+fpioa.set_function(9, fpioa.UART2_TXD)
+fpioa.set_function(10, fpioa.UART2_RXD)
 fpioa.set_function(32, FPIOA.GPIO32)
 fpioa.set_function(33, FPIOA.GPIO33)
 
